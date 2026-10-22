@@ -1,0 +1,30 @@
+version: "3.8"
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_DB: support_kb
+      POSTGRES_USER: ragadmin
+      POSTGRES_PASSWORD: ragadmin
+    ports: ["5432:5432"]
+    volumes:
+      - ./init-db/init.sql:/docker-entrypoint-initdb.d/init.sql
+
+  backend:
+    build: ./backend
+    depends_on: [postgres]
+    environment:
+      DATABASE_URL: postgresql://ragadmin:ragadmin@postgres:5432/support_kb
+      # AZURE_OPENAI_ENDPOINT / AZURE_OPENAI_API_KEY: set these to use real
+      # generation; unset, the service returns an extractive answer instead.
+    ports: ["8000:8000"]
+    command: >
+      sh -c "python -m app.ingest && uvicorn app.main:app --host 0.0.0.0 --port 8000"
+
+  frontend:
+    build: ./frontend
+    depends_on: [backend]
+    environment:
+      NEXT_PUBLIC_GRAPHQL_URL: http://localhost:8000/graphql
+    ports: ["3000:3000"]
